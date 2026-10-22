@@ -26,23 +26,6 @@
   $("[data-total-categorias]").textContent = categorias.length;
   $("[data-ano]").textContent = new Date().getFullYear();
 
-  // ---------- cartões de categoria ----------
-  $("[data-cats]").innerHTML = categorias.map((c) => {
-    let fotos = produtos.filter((p) => p.cat === c.sigla && p.foto).slice(0, 4);
-    if (fotos.length < 4) fotos = fotos.slice(0, 1);
-    return `<button class="cat" type="button" data-cat="${c.sigla}">
-      <span class="cat-fotos${fotos.length === 1 ? " uma" : ""}">${fotos.map((p) => `<img src="img/produtos/${p.foto}-p.webp" alt="" loading="lazy" width="180" height="180">`).join("")}</span>
-      <span class="cat-txt"><strong>${esc(c.nome)}</strong><span>${c.total} produtos</span></span>
-    </button>`;
-  }).join("");
-  $("[data-cats]").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-cat]");
-    if (!b) return;
-    estado.cat = b.dataset.cat; estado.sub = ""; estado.quantos = POR_VEZ;
-    desenhar();
-    $("#produtos").scrollIntoView();
-  });
-
   // ---------- filtros e grade ----------
   const estado = { cat: "", sub: "", termo: "", quantos: POR_VEZ };
   const filtrados = () => {

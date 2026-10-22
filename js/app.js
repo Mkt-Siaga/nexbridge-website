@@ -167,15 +167,130 @@
     if (r) alternar(r.dataset.rem);
   });
   $("[data-limpar]").addEventListener("click", () => { lista = {}; salvar(); atualizarLista(); desenhar(); });
-  $("[data-copiar]").addEventListener("click", async () => {
-    const texto = "Solicitação de cotação – Nexbridge International\n\n" +
-      Object.entries(lista).map(([sku, q]) => `${sku} | ${porSku[sku].nome} | Qtd: ${q}`).join("\n");
-    try { await navigator.clipboard.writeText(texto); }
-    catch {
-      const t = document.createElement("textarea"); t.value = texto; document.body.append(t); t.select();
-      document.execCommand("copy"); t.remove();
-    }
-    avisar("Lista copiada");
+  // ---------- PDF da cotação ----------
+  let jspdfPronto;
+  const carregarJsPDF = () => jspdfPronto ??= new Promise((ok, falha) => {
+    const s = document.createElement("script");
+    s.src = "js/vendor/jspdf.umd.min.js";
+    s.onload = () => ok(window.jspdf.jsPDF);
+    s.onerror = () => { jspdfPronto = null; falha(new Error("jsPDF")); };
+    document.head.append(s);
+  });
+  // imagem -> JPEG em fundo branco (o jsPDF não lê webp); devolve null se falhar
+  const paraJpeg = (src, lado) => new Promise((ok) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      const s = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      ok({ dados: c.toDataURL("image/jpeg", 0.85), w: c.width, h: c.height });
+    };
+    img.onerror = () => ok(null);
+    img.src = src;
+  });
+  // logo já aplicada sobre o azul do cabeçalho, em JPEG leve
+  const logoNoFundo = (src, fundo, largura) => new Promise((ok) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = largura; c.height = Math.round(largura * img.naturalHeight / img.naturalWidth);
+      const g = c.getContext("2d"); g.fillStyle = fundo; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      ok({ dados: c.toDataURL("image/jpeg", 0.9), w: c.width, h: c.height });
+    };
+    img.onerror = () => ok(null);
+    img.src = src;
+  });
+
+  async function gerarPDF() {
+    const jsPDF = await carregarJsPDF();
+    const itens = Object.entries(lista).map(([sku, qtd]) => ({ p: porSku[sku], qtd }));
+    const nome = $("[data-cli-nome]").value.trim(), empresa = $("[data-cli-empresa]").value.trim();
+    const [logo, ...fotos] = await Promise.all([
+      logoNoFundo("img/marca/nexbridge-logo-negativo-transparente.png", "rgb(18,22,64)", 480),
+      ...itens.map(({ p }) => (p.foto ? paraJpeg(`img/produtos/${p.foto}-p.webp`, 240) : Promise.resolve(null))),
+    ]);
+
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const W = 210, H = 297, M = 15;
+    const NAVY = [18, 22, 64], TEAL = [13, 111, 140], CINZA = [107, 112, 128], LINHA = [227, 231, 236];
+    const hoje = new Date();
+    const data = hoje.toLocaleDateString("pt-BR");
+    const numero = `COT-${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}-${String(hoje.getHours()).padStart(2, "0")}${String(hoje.getMinutes()).padStart(2, "0")}`;
+
+    const cabecalho = () => {
+      doc.setFillColor(...NAVY); doc.rect(0, 0, W, 34, "F");
+      doc.setFillColor(31, 166, 204); doc.rect(0, 34, W, 1.2, "F");
+      if (logo) { const lh = 20, lw = lh * logo.w / logo.h; doc.addImage(logo.dados, "JPEG", M, 7, lw, lh); }
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+      doc.text("Solicitação de Cotação", W - M, 15, { align: "right" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(201, 207, 230);
+      doc.text(`Nº ${numero}   ·   ${data}`, W - M, 21.5, { align: "right" });
+      doc.text("mkt-siaga.github.io/nexbridge-website", W - M, 27, { align: "right" });
+    };
+    const rodape = (pg, total) => {
+      doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, H - 14, W - M, H - 14);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(...CINZA);
+      doc.text("Imagens ilustrativas. Preços, especificações e disponibilidade serão confirmados pelo time comercial.", M, H - 9);
+      doc.text(`Página ${pg} de ${total}`, W - M, H - 9, { align: "right" });
+    };
+    const cabTabela = (y) => {
+      doc.setFillColor(244, 246, 248); doc.rect(M, y, W - 2 * M, 8, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+      doc.text("ITEM", M + 3, y + 5.3); doc.text("FOTO", M + 13, y + 5.3); doc.text("CÓDIGO", M + 37, y + 5.3);
+      doc.text("PRODUTO", M + 66, y + 5.3); doc.text("QTD", W - M - 3, y + 5.3, { align: "right" });
+      return y + 8;
+    };
+
+    cabecalho();
+    // bloco do solicitante
+    let y = 45;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...TEAL);
+    doc.text("SOLICITANTE", M, y);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...NAVY);
+    doc.text(`Nome: ${nome || "—"}`, M, y + 6);
+    doc.text(`Empresa: ${empresa || "—"}`, M + 90, y + 6);
+    y = cabTabela(y + 13);
+
+    const ALT = 22;
+    itens.forEach(({ p, qtd }, i) => {
+      if (y + ALT > H - 20) { doc.addPage(); cabecalho(); y = cabTabela(45); }
+      const f = fotos[i];
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...CINZA);
+      doc.text(String(i + 1).padStart(2, "0"), M + 3, y + ALT / 2 + 1.5);
+      if (f) { const s = 18 / Math.max(f.w, f.h); doc.addImage(f.dados, "JPEG", M + 12 + (18 - f.w * s) / 2, y + 2 + (18 - f.h * s) / 2, f.w * s, f.h * s); }
+      else { doc.setFillColor(244, 246, 248); doc.roundedRect(M + 12, y + 2, 18, 18, 2, 2, "F"); }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...TEAL);
+      doc.text(p.sku, M + 37, y + ALT / 2 + 1.5);
+      doc.setTextColor(...NAVY);
+      const linhas = doc.splitTextToSize(p.nome, 92).slice(0, 2);
+      doc.text(linhas, M + 66, y + ALT / 2 + (linhas.length > 1 ? -1 : 1.5));
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+      doc.text(`${catPorSigla[p.cat]?.nome ?? ""} · ${p.sub}`, M + 66, y + ALT / 2 + (linhas.length > 1 ? 7.5 : 6));
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...NAVY);
+      doc.text(String(qtd), W - M - 3, y + ALT / 2 + 1.5, { align: "right" });
+      doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, y + ALT, W - M, y + ALT);
+      y += ALT;
+    });
+
+    // totais
+    if (y + 16 > H - 20) { doc.addPage(); cabecalho(); y = 45; }
+    const unidades = itens.reduce((s, it) => s + Number(it.qtd), 0);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...NAVY);
+    doc.text(`${itens.length} ${itens.length === 1 ? "produto" : "produtos"} · ${unidades} ${unidades === 1 ? "unidade" : "unidades"}`, W - M - 3, y + 9, { align: "right" });
+
+    const total = doc.getNumberOfPages();
+    for (let pg = 1; pg <= total; pg++) { doc.setPage(pg); rodape(pg, total); }
+    doc.save(`Cotacao_Nexbridge_${numero}.pdf`);
+  }
+
+  $("[data-pdf]").addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    if (!Object.keys(lista).length) return;
+    b.disabled = true;
+    try { await gerarPDF(); avisar("PDF da cotação gerado"); }
+    catch { avisar("Não foi possível gerar o PDF. Tente novamente."); }
+    finally { b.disabled = false; }
   });
 
   let tAviso;

@@ -116,8 +116,13 @@
   <p class="gaveta-vazia" data-lista-vazia>Sua lista está vazia. Use “Adicionar à cotação” nos produtos.</p>
   <ul class="lista" data-lista></ul>
   <div class="gaveta-pe" data-lista-pe hidden>
-    <p>Copie a lista e envie para o nosso time comercial.</p>
-    <button class="btn btn-escuro" type="button" data-copiar>Copiar lista</button>
+    <p>Gere o PDF da cotação e envie para o nosso time comercial.</p>
+    <label class="campo">Seu nome <span>(opcional)</span><input type="text" data-cli-nome autocomplete="name" maxlength="80"></label>
+    <label class="campo">Empresa <span>(opcional)</span><input type="text" data-cli-empresa autocomplete="organization" maxlength="80"></label>
+    <button class="btn btn-escuro" type="button" data-pdf>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+      Baixar cotação em PDF
+    </button>
     <button class="btn-link" type="button" data-limpar>Limpar lista</button>
   </div>
 </aside>

@@ -175,6 +175,12 @@ a { color: inherit; }
 .qtd button:hover { background: var(--fundo); color: #b42318; }
 .gaveta-pe { display: grid; gap: 10px; padding: 20px 24px 24px; border-top: 1px solid var(--linha); }
 .gaveta-pe p { margin: 0; font-size: 13px; color: var(--suave); }
+.campo { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--navy); }
+.campo span { font-weight: 500; color: var(--suave); }
+.campo input { height: 40px; padding: 0 12px; border: 1.5px solid var(--linha); border-radius: 10px; font: inherit; font-size: 14px; font-weight: 500; color: var(--tinta); }
+.campo input:focus { outline: 0; border-color: var(--teal); }
+.gaveta-pe .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.gaveta-pe .btn[disabled] { opacity: .6; cursor: progress; }
 .aviso { position: fixed; left: 50%; bottom: 24px; z-index: 60; transform: translateX(-50%); padding: 12px 20px; border-radius: 999px; background: var(--navy); color: #fff; font-size: 14px; font-weight: 600; box-shadow: var(--sombra); }
 
 /* ---------- rodapé ---------- */

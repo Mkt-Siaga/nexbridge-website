@@ -1,6 +1,6 @@
 # Nexbridge International · site do catálogo
 
-Site estático (HTML/CSS/JS puro, sem build) com o catálogo de produtos da Nexbridge: busca, filtro por categoria, ficha do produto e lista de cotação (fica salva só no navegador de quem usa; o botão "Copiar lista" gera o texto com SKU, nome e quantidade).
+Site estático (HTML/CSS/JS puro, sem build) com o catálogo de produtos da Nexbridge: busca, filtro por categoria, ficha do produto e lista de cotação (fica salva só no navegador de quem usa; o botão "Baixar cotação em PDF" gera um PDF com cabeçalho Nexbridge, solicitante, foto, SKU, nome e quantidade — biblioteca jsPDF em `js/vendor`, licença MIT).
 
 Publicado pelo GitHub Pages: todo push na `main` atualiza o site.
 

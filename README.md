@@ -7,6 +7,7 @@ Publicado pelo GitHub Pages: todo push na `main` atualiza o site.
 ## Arquivos
 
 - `index.html`, `css/site.css`, `js/app.js`: o site.
+- `js/destaques.js`: anúncios do carrossel do topo (produto, selo, título, texto e cor). Editar à mão.
 - `js/dados.js`, `img/produtos/`, `img/marca/`, `Nexbridge_Catalogo_de_Produtos.pdf`: **gerados**, não editar à mão.
 
 ## Atualizar produtos

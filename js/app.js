@@ -202,6 +202,73 @@
     clearTimeout(tAviso); tAviso = setTimeout(() => { a.hidden = true; }, 1800);
   }
 
+  // ---------- carrossel de anúncios ----------
+  const destaques = (window.NEXBRIDGE_DESTAQUES || []).filter((d) => porSku[d.sku]?.foto);
+  const slides = $("[data-slides]"), pontos = $("[data-pontos]");
+  let atual = 0, timer = null, pausado = matchMedia("(prefers-reduced-motion: reduce)").matches, sobre = false;
+  slides.innerHTML = destaques.map((d, i) => {
+    const p = porSku[d.sku];
+    return `<a class="slide" href="#p=${p.sku}" style="--cor:${esc(d.cor || "#1fa6cc")}" role="group" aria-roledescription="anúncio" aria-label="${i + 1} de ${destaques.length}: ${esc(p.nome)}">
+      <div class="wrap slide-in">
+        <div class="slide-txt">
+          <span class="sobre">${esc(d.selo)}</span>
+          <h2>${esc(d.titulo)}</h2>
+          <p>${esc(d.texto)}</p>
+          <span class="btn btn-claro slide-cta">Ver produto <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+          <span class="slide-sku">${p.sku} · ${esc(p.nome)}</span>
+        </div>
+        <div class="slide-foto">
+          <span class="selo-novo" aria-hidden="true">Destaque</span>
+          <span class="disco"><img src="img/produtos/${p.foto}.webp" alt="${esc(p.nome)}" width="640" height="640" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}></span>
+        </div>
+      </div>
+    </a>`;
+  }).join("");
+  pontos.innerHTML = destaques.map((d, i) => `<button class="ponto" type="button" role="tab" data-ir="${i}" aria-label="Anúncio ${i + 1}"></button>`).join("");
+  const itensSlide = [...slides.children];
+
+  function ir(i) {
+    if (!destaques.length) return;
+    atual = (i + destaques.length) % destaques.length;
+    slides.style.transform = `translateX(${-100 * atual}%)`;
+    itensSlide.forEach((s, k) => { s.setAttribute("aria-hidden", k !== atual); s.tabIndex = k === atual ? 0 : -1; });
+    [...pontos.children].forEach((b, k) => b.setAttribute("aria-selected", k === atual));
+  }
+  const agendar = () => {
+    clearInterval(timer);
+    if (!pausado && !sobre && destaques.length > 1) timer = setInterval(() => ir(atual + 1), 6000);
+  };
+  const botaoPausa = $("[data-pausa]");
+  const mostrarPausa = () => {
+    botaoPausa.setAttribute("aria-label", pausado ? "Reproduzir" : "Pausar");
+    botaoPausa.innerHTML = pausado
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>';
+  };
+  $("[data-ant]").addEventListener("click", () => { ir(atual - 1); agendar(); });
+  $("[data-prox]").addEventListener("click", () => { ir(atual + 1); agendar(); });
+  botaoPausa.addEventListener("click", () => { pausado = !pausado; mostrarPausa(); agendar(); });
+  pontos.addEventListener("click", (e) => { const b = e.target.closest("[data-ir]"); if (b) { ir(+b.dataset.ir); agendar(); } });
+  const carrossel = $("[data-carrossel]");
+  carrossel.addEventListener("mouseenter", () => { sobre = true; agendar(); });
+  carrossel.addEventListener("mouseleave", () => { sobre = false; agendar(); });
+  carrossel.addEventListener("focusin", () => { sobre = true; agendar(); });
+  carrossel.addEventListener("focusout", () => { sobre = false; agendar(); });
+  document.addEventListener("visibilitychange", () => (document.hidden ? clearInterval(timer) : agendar()));
+
+  // arrastar no celular
+  let x0 = null, arrastou = false;
+  slides.addEventListener("pointerdown", (e) => { x0 = e.clientX; arrastou = false; });
+  slides.addEventListener("pointerup", (e) => {
+    if (x0 == null) return;
+    const dx = e.clientX - x0; x0 = null;
+    if (Math.abs(dx) > 50) { arrastou = true; ir(atual + (dx < 0 ? 1 : -1)); agendar(); }
+  });
+  slides.addEventListener("click", (e) => { if (arrastou) { e.preventDefault(); arrastou = false; } });
+  slides.addEventListener("dragstart", (e) => e.preventDefault());
+
+  ir(0); mostrarPausa(); agendar();
+
   atualizarLista();
   desenhar();
   lerHash();
